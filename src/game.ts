@@ -1,5 +1,6 @@
 export type Point = { x: number; y: number };
 export type Direction = 'up' | 'down' | 'left' | 'right';
+export type Walls = 'solid' | 'wrap';
 export type Status = 'ready' | 'running' | 'paused' | 'over';
 
 export type GameState = {
@@ -14,6 +15,7 @@ export type GameState = {
   score: number;
   status: Status;
   seed: number;
+  walls: Walls;
 };
 
 export type Action =
@@ -21,7 +23,8 @@ export type Action =
   | { type: 'turn'; dir: Direction }
   | { type: 'toggle-pause' }
   | { type: 'start' }
-  | { type: 'restart' };
+  | { type: 'restart' }
+  | { type: 'set-walls'; walls: Walls };
 
 const MAX_QUEUED = 2;
 const COLS = 20;
@@ -39,6 +42,11 @@ const OPPOSITE: Record<Direction, Direction> = {
   down: 'up',
   left: 'right',
   right: 'left',
+};
+
+const STEP_INTO: Record<Walls, (p: Point, cols: number, rows: number) => Point | 'wall'> = {
+  solid: (p, cols, rows) => (p.x < 0 || p.y < 0 || p.x >= cols || p.y >= rows ? 'wall' : p),
+  wrap: (p, cols, rows) => ({ x: (p.x + cols) % cols, y: (p.y + rows) % rows }),
 };
 
 export function tickMs(score: number): number {
@@ -71,7 +79,7 @@ function placeFood(
   return [free[Math.floor(r * free.length)]!, next];
 }
 
-export function createGame(seed: number, cols = COLS, rows = ROWS): GameState {
+export function createGame(seed: number, walls: Walls = 'solid', cols = COLS, rows = ROWS): GameState {
   const cy = Math.floor(rows / 2);
   const cx = Math.floor(cols / 2);
   const snake = [
@@ -90,6 +98,7 @@ export function createGame(seed: number, cols = COLS, rows = ROWS): GameState {
     score: 0,
     status: 'ready',
     seed: nextSeed,
+    walls,
   };
 }
 
@@ -102,16 +111,19 @@ function tick(state: GameState): GameState {
   const dir = next ?? state.dir;
   const d = DELTA[dir];
   const head = state.snake[0]!;
-  const target = { x: head.x + d.x, y: head.y + d.y };
+  const target = STEP_INTO[state.walls](
+    { x: head.x + d.x, y: head.y + d.y },
+    state.cols,
+    state.rows,
+  );
+  if (target === 'wall') return { ...state, dir, queued: rest, status: 'over' };
 
-  const hitsWall =
-    target.x < 0 || target.y < 0 || target.x >= state.cols || target.y >= state.rows;
   const eats = target.x === state.food.x && target.y === state.food.y;
   // The tail cell is free this tick unless the snake grows into it.
   const body = eats ? state.snake : state.snake.slice(0, -1);
   const hitsSelf = body.some((p) => p.x === target.x && p.y === target.y);
 
-  if (hitsWall || hitsSelf) {
+  if (hitsSelf) {
     return { ...state, dir, queued: rest, status: 'over' };
   }
 
@@ -141,11 +153,15 @@ function turn(state: GameState, dir: Direction): GameState {
 
 type Handler = (state: GameState, action: Action) => GameState;
 
-const restart: Handler = (state) => createGame(state.seed, state.cols, state.rows);
+const restart: Handler = (state) => createGame(state.seed, state.walls, state.cols, state.rows);
+
+const restartWithWalls: Handler = (s, a) =>
+  createGame(s.seed, (a as Extract<Action, { type: 'set-walls' }>).walls, s.cols, s.rows);
 
 const transitions: Record<Status, Partial<Record<Action['type'], Handler>>> = {
   ready: {
     start: (s) => ({ ...s, status: 'running' }),
+    'set-walls': restartWithWalls,
     restart,
   },
   running: {
@@ -156,9 +172,11 @@ const transitions: Record<Status, Partial<Record<Action['type'], Handler>>> = {
   },
   paused: {
     'toggle-pause': (s) => ({ ...s, status: 'running' }),
+    'set-walls': restartWithWalls,
     restart,
   },
   over: {
+    'set-walls': restartWithWalls,
     restart,
   },
 };

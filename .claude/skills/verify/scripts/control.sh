@@ -9,6 +9,12 @@ run_dir=/tmp/snake-verify-$port
 pid_file=$run_dir/preview.pid
 url=http://127.0.0.1:$port/
 
+source_rev() {
+  local diff
+  diff=$(git -C "$root" diff HEAD -- src index.html package.json)
+  echo "$(git -C "$root" rev-parse --short HEAD)${diff:++$(sha1sum <<<"$diff" | cut -c1-8)}"
+}
+
 case $cmd in
   launch)
     if [[ -f $pid_file ]] && kill -0 "$(cat "$pid_file")" 2>/dev/null; then
@@ -21,7 +27,7 @@ case $cmd in
     cd "$root"
     [[ -d node_modules ]] || npm ci
     npm run build >"$run_dir/build.log" 2>&1 || { cat "$run_dir/build.log" >&2; exit 1; }
-    git rev-parse --short HEAD >"$run_dir/build.rev"
+    source_rev >"$run_dir/build.rev"
     setsid npx vite preview --host 127.0.0.1 --port "$port" --strictPort >"$run_dir/preview.log" 2>&1 &
     echo $! >"$pid_file"
     for _ in $(seq 50); do
@@ -35,10 +41,9 @@ case $cmd in
     pid=$(cat "$pid_file")
     kill -0 "$pid" 2>/dev/null || { echo "FAIL: pid $pid is gone"; exit 1; }
     curl -fsS "$url" | grep -q '<title>贪吃蛇</title>' || { echo "FAIL: $url does not serve the snake app"; exit 1; }
-    built=$(cat "$run_dir/build.rev"); head=$(git -C "$root" rev-parse --short HEAD)
-    dirty=$(git -C "$root" status --porcelain -- src index.html | wc -l)
-    echo "OK: $url pid=$pid build=$built head=$head uncommitted_src_files=$dirty"
-    [[ $built == "$head" && $dirty == 0 ]] || echo "WARN: build may be stale; run stop then launch to rebuild"
+    built=$(cat "$run_dir/build.rev"); now=$(source_rev)
+    echo "OK: $url pid=$pid build=$built source=$now"
+    [[ $built == "$now" ]] || echo "WARN: source changed since this build; run stop then launch to rebuild"
     ;;
   stop)
     [[ -f $pid_file ]] || { echo "nothing launched on port $port"; exit 0; }

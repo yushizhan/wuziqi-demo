@@ -25,3 +25,4 @@ This directory is the maintained source for verifying what a player can do in th
 - [Eat, score and best](./eat-score-best.md) covers growth, the score counter, the speed-up and best-score persistence.
 - [Game over and restart](./game-over-restart.md) covers wall and self collision, the game-over screen and restarting.
 - [Mobile controls](./mobile-controls.md) covers the D-pad, swipes and tap-to-pause on touch devices.
+- [Wrap mode](./wrap-mode.md) covers the 穿墙模式 switch, passing through walls, persistence of the choice and the per-mode best score.

@@ -57,6 +57,10 @@ const readState = () =>
       best: Number(document.getElementById('best').textContent),
       overlay: overlay.hidden ? null : overlay.textContent,
       storedBest: localStorage.getItem('snake.best'),
+      storedBestWrap: localStorage.getItem('snake.best.wrap'),
+      walls: document.getElementById('wrap').checked,
+      wrapDisabled: document.getElementById('wrap').disabled,
+      storedWalls: localStorage.getItem('snake.walls'),
     };
   });
 
@@ -178,6 +182,31 @@ const STEPS = {
   tap: (dir) => page.locator(`.dpad button[data-dir="${dir}"]`).dispatchEvent('pointerdown'),
   swipe,
   click: () => (opts.mobile ? page.locator('.board').tap() : page.locator('.board').click()),
+  'click-on': (selector) => (opts.mobile ? page.locator(selector).first().tap() : page.locator(selector).first().click()),
+  'expect-walls': async (want) => {
+    await page
+      .waitForFunction((on) => document.getElementById('wrap').checked === on, want === 'on', { timeout: 1000 })
+      .catch(() => {
+        throw new Error(`walls switch is not ${want}`);
+      });
+  },
+  'expect-enabled': async (selector, want = 'true') => {
+    await page
+      .waitForFunction(([sel, w]) => String(!document.querySelector(sel).disabled) === w, [selector, want], { timeout: 1000 })
+      .catch(() => {
+        throw new Error(`${selector} is not ${want === 'true' ? 'enabled' : 'disabled'}`);
+      });
+  },
+  'wait-head-x': async (op, n, ms = '5000') => {
+    const test = { '<=': (x) => x <= +n, '>=': (x) => x >= +n }[op];
+    const deadline = Date.now() + Number(ms);
+    for (;;) {
+      const { head } = await readBoard();
+      if (head && test(head.x)) return;
+      if (Date.now() > deadline) throw new Error(`head x never ${op} ${n} (last ${JSON.stringify(head)})`);
+      await page.waitForTimeout(10);
+    }
+  },
   wait: (ms) => page.waitForTimeout(Number(ms)),
   'wait-overlay': (want, ms = '15000') =>
     page.waitForFunction(
@@ -204,7 +233,12 @@ const STEPS = {
     if (!ok) throw new Error(`score ${s.score} is not ${op} ${n}`);
   },
   'expect-best': async (n) => {
-    const s = await readState();
+    const deadline = Date.now() + 1000;
+    let s = await readState();
+    while (s.best !== +n && Date.now() < deadline) {
+      await page.waitForTimeout(50);
+      s = await readState();
+    }
     if (s.best !== +n) throw new Error(`best ${s.best} != ${n}`);
   },
   'expect-visible': async (selector, want = 'true') => {
