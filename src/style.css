@@ -32,6 +32,10 @@ h1 { margin: 0; font-size: 1.8rem; letter-spacing: 0.2em; color: var(--accent); 
 .scores { display: flex; gap: 24px; color: var(--muted); }
 .scores strong { color: var(--text); font-variant-numeric: tabular-nums; margin-left: 4px; }
 
+.mode { display: flex; align-items: center; gap: 6px; color: var(--muted); cursor: pointer; }
+.mode input { accent-color: var(--accent); }
+.mode input:disabled { cursor: not-allowed; }
+
 .board {
   position: relative;
   width: min(92vw, 70dvh, 480px);
@@ -39,9 +43,12 @@ h1 { margin: 0; font-size: 1.8rem; letter-spacing: 0.2em; color: var(--accent); 
   background: var(--panel);
   border-radius: 12px;
   box-shadow: 0 10px 40px rgb(0 0 0 / 0.45);
+  border: 2px solid transparent;
   overflow: hidden;
   touch-action: none;
 }
+
+.board.wrap { border-style: dashed; border-color: var(--accent); }
 
 canvas { display: block; width: 100%; height: 100%; }
 

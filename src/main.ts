@@ -1,6 +1,8 @@
-import { createGame, isWon, reduce, tickMs, type Action, type Direction, type GameState } from './game';
+import { createGame, isWon, reduce, tickMs, type Action, type Direction, type GameState, type Walls } from './game';
 
-const BEST_KEY = 'snake.best';
+const WALLS_KEY = 'snake.walls';
+const LEGACY_BEST_KEY = 'snake.best';
+const BEST_KEYS: Record<Walls, string> = { solid: LEGACY_BEST_KEY, wrap: 'snake.best.wrap' };
 const MAX_FRAME_MS = 250;
 const SWIPE_MIN_PX = 24;
 
@@ -20,35 +22,52 @@ const canvas = $<HTMLCanvasElement>('canvas');
 const overlay = $<HTMLDivElement>('overlay');
 const scoreEl = $('score');
 const bestEl = $('best');
+const wrapEl = $<HTMLInputElement>('wrap');
 const ctx = canvas.getContext('2d')!;
 
-function loadBest(): number {
+function loadBest(walls: Walls): number {
   try {
-    const n = Number.parseInt(localStorage.getItem(BEST_KEY) ?? '', 10);
+    const n = Number.parseInt(localStorage.getItem(BEST_KEYS[walls]) ?? '', 10);
     return Number.isFinite(n) && n > 0 ? n : 0;
   } catch {
     return 0;
   }
 }
 
-function saveBest(n: number): void {
+function loadWalls(): Walls {
   try {
-    localStorage.setItem(BEST_KEY, String(n));
+    return localStorage.getItem(WALLS_KEY) === 'wrap' ? 'wrap' : 'solid';
+  } catch {
+    return 'solid';
+  }
+}
+
+function saveWalls(walls: Walls): void {
+  try {
+    localStorage.setItem(WALLS_KEY, walls);
+  } catch {}
+}
+
+function saveBest(walls: Walls, n: number): void {
+  try {
+    localStorage.setItem(BEST_KEYS[walls], String(n));
   } catch {
     // Storage can be blocked (private mode); the best score then lasts for the session only.
   }
 }
 
-let state = createGame((Math.random() * 2 ** 32) >>> 0);
-let best = loadBest();
+let state = createGame((Math.random() * 2 ** 32) >>> 0, loadWalls());
+const bests: Record<Walls, number> = { solid: loadBest('solid'), wrap: loadBest('wrap') };
 let accumulator = 0;
 let lastFrame = 0;
 
 function dispatch(action: Action): void {
+  const before = state.walls;
   state = reduce(state, action);
-  if (state.score > best) {
-    best = state.score;
-    saveBest(best);
+  if (state.walls !== before) saveWalls(state.walls);
+  if (state.score > bests[state.walls]) {
+    bests[state.walls] = state.score;
+    saveBest(state.walls, state.score);
   }
 }
 
@@ -67,6 +86,10 @@ function restart(): void {
   accumulator = 0;
 }
 
+function toggleWalls(): void {
+  dispatch({ type: 'set-walls', walls: state.walls === 'wrap' ? 'solid' : 'wrap' });
+}
+
 function onOverlayTap(): void {
   if (state.status === 'over') restart();
   else startOrPause();
@@ -80,12 +103,20 @@ document.addEventListener('keydown', (e) => {
     press(dir);
   } else if (key === ' ') {
     if (state.status !== 'over') startOrPause();
+  } else if (key === 'm') {
+    toggleWalls();
   } else if (key === 'enter' || key === 'r') {
     restart();
   } else {
     return;
   }
   e.preventDefault();
+});
+
+wrapEl.addEventListener('change', () => {
+  dispatch({ type: 'set-walls', walls: wrapEl.checked ? 'wrap' : 'solid' });
+  // A focused checkbox would also toggle on the Space that starts the game.
+  wrapEl.blur();
 });
 
 document.querySelectorAll<HTMLButtonElement>('.dpad button').forEach((btn) => {
@@ -175,7 +206,10 @@ function overlayText(s: GameState): string | null {
 function render(): void {
   draw(state);
   scoreEl.textContent = String(state.score);
-  bestEl.textContent = String(best);
+  bestEl.textContent = String(bests[state.walls]);
+  wrapEl.checked = state.walls === 'wrap';
+  wrapEl.disabled = state.status === 'running';
+  board.classList.toggle('wrap', state.walls === 'wrap');
   const text = overlayText(state);
   overlay.hidden = text === null;
   if (text !== null && overlay.textContent !== text) overlay.textContent = text;

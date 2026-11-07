@@ -14,6 +14,7 @@
         <span>得分 <strong id="score">0</strong></span>
         <span>最高分 <strong id="best">0</strong></span>
       </div>
+      <label class="mode"><input type="checkbox" role="switch" id="wrap" aria-label="穿墙模式"> 穿墙模式</label>
       <div class="board">
         <canvas id="canvas" aria-label="游戏画面"></canvas>
         <div class="overlay" id="overlay" hidden></div>
@@ -24,7 +25,7 @@
         <button data-dir="down" aria-label="下">▼</button>
         <button data-dir="right" aria-label="右">▶</button>
       </div>
-      <p class="hint">方向键 / WASD 移动 · 空格 开始/暂停 · Enter 或 R 重新开始 · 触屏可滑动</p>
+      <p class="hint">方向键 / WASD 移动 · 空格 开始/暂停 · Enter 或 R 重新开始 · M 切换穿墙 · 触屏可滑动</p>
     </main>
     <script type="module" src="/src/main.ts"></script>
   </body>
