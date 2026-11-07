@@ -150,3 +150,74 @@ describe('snake game', () => {
     expect(tickMs(1000)).toBe(60);
   });
 });
+
+describe('wrap walls', () => {
+  const wrapping = (overrides: Partial<GameState> = {}) =>
+    running({ walls: 'wrap', food: { x: 5, y: 5 }, ...overrides });
+
+  it.each([
+    ['right', { x: 19, y: 7 }, 1, 0, { x: 0, y: 7 }],
+    ['left', { x: 0, y: 7 }, -1, 0, { x: 19, y: 7 }],
+    ['down', { x: 7, y: 19 }, 0, 1, { x: 7, y: 0 }],
+    ['up', { x: 7, y: 0 }, 0, -1, { x: 7, y: 19 }],
+  ] as const)('leaves by the %s edge and re-enters on the opposite one alive', (dir, head, dx, dy, entered) => {
+    const s = wrapping({ snake: line(head, -dx, -dy, 3), dir });
+    const after = run(s, tick);
+    expect(after.status).toBe('running');
+    expect(after.snake[0]).toEqual(entered);
+    expect(after.snake).toHaveLength(3);
+  });
+
+  it('eats food sitting on the opposite edge after wrapping', () => {
+    const s = wrapping({ snake: line({ x: 19, y: 7 }, -1, 0, 3), food: { x: 0, y: 7 } });
+    const after = run(s, tick);
+    expect(after.score).toBe(1);
+    expect(after.snake).toHaveLength(4);
+  });
+
+  it('still dies on hitting itself', () => {
+    const snake: Point[] = [
+      { x: 5, y: 5 },
+      { x: 6, y: 5 },
+      { x: 6, y: 4 },
+      { x: 5, y: 4 },
+      { x: 4, y: 4 },
+      { x: 4, y: 5 },
+      { x: 4, y: 6 },
+    ];
+    const s = wrapping({ snake, dir: 'right', food: { x: 0, y: 0 } });
+    expect(run(s, turn('up'), tick).status).toBe('over');
+  });
+
+  it('dies on the wall again when walls are solid', () => {
+    const s = running({ walls: 'solid', snake: line({ x: 19, y: 5 }, -1, 0, 3), food: { x: 0, y: 0 } });
+    expect(run(s, tick).status).toBe('over');
+  });
+
+  it('new games default to solid walls', () => {
+    expect(createGame(1).walls).toBe('solid');
+  });
+
+  it('starts a fresh ready game in the new mode from ready, paused and over', () => {
+    const paused = run(running({ score: 3 }), { type: 'toggle-pause' });
+    const over = run(running({ score: 2, snake: line({ x: 19, y: 5 }, -1, 0, 3) }), tick);
+    for (const s of [createGame(1), paused, over]) {
+      const next = run(s, { type: 'set-walls', walls: 'wrap' });
+      expect(next.walls).toBe('wrap');
+      expect(next.status).toBe('ready');
+      expect(next.score).toBe(0);
+      expect(next.snake).toEqual(createGame(1).snake);
+    }
+  });
+
+  it('ignores set-walls while running', () => {
+    const s = running();
+    expect(run(s, { type: 'set-walls', walls: 'wrap' })).toBe(s);
+  });
+
+  it('keeps the chosen walls across restart', () => {
+    const s = run(createGame(1), { type: 'set-walls', walls: 'wrap' }, { type: 'restart' });
+    expect(s.walls).toBe('wrap');
+    expect(s.status).toBe('ready');
+  });
+});
