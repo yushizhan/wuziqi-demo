@@ -1,11 +1,11 @@
 ---
 name: verify
-description: Launch and drive the 贪吃蛇 (Snake) browser SPA in headless Chromium to prove gameplay works the way a player sees it (start/pause, turning, eating and scoring, best score persistence, game over and restart, mobile D-pad and swipe). Use after any change to src/, index.html or styles, or whenever asked to run, screenshot, or verify the game.
+description: Launch and drive the 贪吃蛇 (Snake) browser SPA in headless Chromium to prove gameplay works the way a player sees it (start/pause, turning, eating and scoring, best score persistence, wrap-around walls mode, game over and restart, mobile D-pad and swipe). Use after any change to src/, index.html or styles, or whenever asked to run, screenshot, or verify the game.
 ---
 
 # Verify the Snake SPA
 
-The only user surface is a single page served by Vite: a 20×20 `<canvas>` board plus a DOM overlay, score line and a touch D-pad. There is no backend. The only persisted state is `localStorage["snake.best"]`, and every drive gets a fresh browser context, so runs never share state.
+The only user surface is a single page served by Vite: a 20×20 `<canvas>` board plus a DOM overlay, score line and a touch D-pad. There is no backend. The persisted state is `localStorage` keys `snake.best` and `snake.best.wrap` (best score per wall mode) and `snake.walls` (the 穿墙模式 choice), and every drive gets a fresh browser context, so runs never share state.
 
 All commands run from the repo root. `S=.claude/skills/verify/scripts`.
 
@@ -42,6 +42,10 @@ Each invocation opens one fresh page (desktop 800×900, or a 390×844 touch phon
 | `press:<key>` | Presses a key. Keys the game uses are `Space`, `Enter`, `r`, `ArrowUp/Down/Left/Right`, `w/a/s/d`. |
 | `tap:<up\|down\|left\|right>` | Taps the on-screen D-pad button `.dpad button[data-dir=…]`. |
 | `swipe:<dir>` | Swipes 80px across the board (touch events). |
+| `click-on:<css selector>` | Clicks the element, or taps it with `--mobile`. For example `click-on:#wrap` flips the 穿墙模式 switch. |
+| `expect-walls:<on\|off>` | Asserts the 穿墙模式 switch state. |
+| `expect-enabled:<selector>[:false]` | Asserts the element is enabled, or disabled with `:false`. |
+| `wait-head-x:<op>:<n>[:<ms>]` (op is `<=` or `>=`) | Polls the drawn board (default 5s) until the head column satisfies the comparison. Use `<=:3` to catch a head that wrapped to the left edge. |
 | `click` | Clicks or taps the board. This starts or pauses, or restarts after game over. |
 | `wait:<ms>` | Lets the game run. |
 | `wait-overlay:<regex\|hidden>[:<ms>]` | Waits (default 15s) until the overlay text matches, or the overlay is hidden, which means running. |
