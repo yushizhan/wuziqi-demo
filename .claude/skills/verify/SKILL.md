@@ -27,7 +27,7 @@ The build is a snapshot. After editing `src/`, run `stop` then `launch` again.
 $S/control.sh doctor $PORT
 ```
 
-Read-only. Prints `OK: … build=<rev> head=<rev> uncommitted_src_files=<n>` when the process launched on this port is alive and serves the snake page. It prints `WARN: build may be stale` when the build revision differs from HEAD or `src/`/`index.html` have uncommitted edits. A stale build cannot prove your change, so relaunch. Run doctor first whenever a drive fails strangely.
+Read-only. Prints `OK: … build=<rev> source=<rev>` when the process launched on this port is alive and serves the snake page. A rev is the short HEAD, plus `+<hash>` of the uncommitted diff in `src/`, `index.html` and `package.json`, because `launch` builds the working tree. It prints `WARN: source changed since this build` when the two differ. A stale build cannot prove your change, so relaunch. Run doctor first whenever a drive fails strangely.
 
 ## Drive
 
